@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ruleta de la fortuna</title>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti"></script> <!-- Librería para confeti -->
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      
+      background-size: cover; /* Ajusta la imagen al tamaño de la pantalla */
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      background-color: rgba(255, 255, 255, 0.879);
+    }
+
+
+
+    /* Contenedor principal */
+    .container {
+      display: flex;
+      align-items: center;
+    }
+
+    /* Estilo del contorno de la ruleta */
+    #spinWheel {
+      display: inline-block;
+      position: relative;
+      overflow: hidden;
+      border-radius: 50%;
+      box-shadow: 0 0 25px rgba(0, 0, 0, 0.3); /* Sombra alrededor de la ruleta */
+      transition: transform 1s ease-out;
+      transform-style: preserve-3d;
+    }
+
+    #wheel {
+      display: block;
+      width: 500px; /* Tamaño más grande */
+      height: 500px; /* Tamaño más grande */
+    }
+
+    /* Estilo para el botón de girar */
+    #spin {
+      font: 1.1em/0 "Lato", sans-serif;
+      user-select: none;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: absolute;
+      top: 60%;
+      left: 60%;
+      width: 10%;
+      height: 10%;
+      margin: -15%;
+      background: #2e8b57;
+      color: #fff;
+      box-shadow: 0 0 0 4px currentColor, 0 0px 10px 5px rgba(0, 0, 0, 0.6);
+      border-radius: 50%;
+      transition: 0.8s;
+      z-index: 100;
+    }
+
+    /* Flecha de la ruleta */
+    #spinWheel::after {
+      content: "";
+      position: absolute;
+      top: 0px;
+      left: calc(50% - 10px);
+      width: 0;
+      height: 0;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-top: 20px solid #feeb69;
+      -webkit-filter: drop-shadow(1px 2px 2px rgba(0, 0, 0, .5));
+      filter: drop-shadow(1px 2px 2px rgba(0, 0, 0, .5));
+    }
+
+    /* Modal - Estilo */
+    #myModal {
+      display: none;
+      position: fixed;
+      z-index: 1;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 30%;
+      height: auto;
+      background-color: rgba(0, 0, 0, 0.4);
+    }
+
+    .modal-content {
+      background-color: #fefefe;
+      margin: 0;
+      padding: 20px;
+      border: 1px solid #888;
+      text-align: center;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-content input {
+      margin: 10px;
+      padding: 8px;
+      width: 80%;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    .modal-content button {
+      padding: 10px 20px;
+      background-color: #2e8b57;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 18px;
+    }
+
+    .modal-content button:hover {
+      background-color: #3b9e68;
+    }
+
+    /* Estilos para el Header */
+    .header {
+      margin-right: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+    }
+
+    .header img {
+        justify-self: left;
+      width: 250px;
+      margin-bottom: 15px;
+    }
+
+    /* Imagen más grande debajo del logo */
+    .header img.second-image {
+      width: 350px; /* Ajusta el tamaño de la segunda imagen */
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <!-- Logo y otra imagen alineadas a la izquierda -->
+      <img src="HDH_01-Original-Horizontal.jpg" alt="Logo Hermandad de Honduras">
+      <img src="stock-photo-business-woman-presenting-a-copyspace-isolated-on-white-background-121244284.jpg"  alt="Mujer Presentando" class="second-image">
+    </div>
+
+    <div id="spinWheel">
+      <canvas id="wheel" width="700" height="700"></canvas> <!-- Ruleta más grande -->
+      <div id="spin">Girar</div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="myModal">
+    <div class="modal-content">
+      <h2>¡Felicidades! Has ganado</h2>
+      <p id="winningPrize">Premio: <span id="prizeName"></span></p>
+      <label for="identityNumber">Identidad:</label>
+      <input type="text" id="identityNumber" placeholder="Ingrese su número de identidad">
+      <label for="name">Nombre del ganador:</label>
+      <input type="text" id="name" placeholder="Ingrese su nombre">
+      <label for="phone">Número de celular:</label>
+      <input type="text" id="phone" placeholder="Ingrese su número de celular">
+      <button id="submitWinner">Enviar</button>
+    </div>
+  </div>
+
+  <script>
+    class SpinWheel {
+      constructor({ canvasSelector, buttonSelector, sectors, friction = 0.99 }) {
+        this.sectors = sectors;
+        this.friction = friction;
+        this.canvas = document.querySelector(canvasSelector);
+        this.context = this.canvas.getContext("2d");
+        this.button = document.querySelector(buttonSelector);
+        this.diameter = this.canvas.width;
+        this.radius = this.diameter / 2;
+        this.totalSectors = sectors.length;
+        this.arcAngle = (2 * Math.PI) / this.totalSectors;
+        this.angle = 0;
+        this.angularVelocity = 0;
+        this.spinButtonClicked = false;
+        this.events = new EventEmitter();
+        this.init();
+      }
+
+      get currentIndex() {
+        return Math.floor(this.totalSectors - (this.angle / (2 * Math.PI)) * this.totalSectors) % this.totalSectors;
+      }
+
+      drawSector(sector, index) {
+        const startAngle = this.arcAngle * index;
+        this.context.save();
+
+        // Draw sector
+        this.context.beginPath();
+        this.context.fillStyle = sector.color;
+        this.context.moveTo(this.radius, this.radius);
+        this.context.arc(this.radius, this.radius, this.radius, startAngle, startAngle + this.arcAngle);
+        this.context.lineTo(this.radius, this.radius);
+        this.context.fill();
+
+        // Add label with the same font size
+        this.context.translate(this.radius, this.radius);
+        this.context.rotate(startAngle + this.arcAngle / 2);
+        this.context.textAlign = "right";
+        this.context.fillStyle = sector.textColor;
+        this.context.font = "bold 20px 'Lato', sans-serif";
+        this.context.fillText(sector.label, this.radius - 20, 10);
+
+        this.context.restore();
+      }
+
+      rotateCanvas() {
+        const currentSector = this.sectors[this.currentIndex];
+        this.canvas.style.transform = `rotate(${this.angle - Math.PI / 2}rad)`;
+      }
+
+      updateFrame() {
+        if (!this.angularVelocity && this.spinButtonClicked) {
+          const winningSector = this.sectors[this.currentIndex];
+          this.events.emit("finishSpinning", winningSector); // Emitir el premio
+          this.spinButtonClicked = false;
+
+          // Efecto de confeti
+          confetti({
+            particleCount: 100,
+            angle: 90,
+            spread: 360,
+            origin: { x: 0.5, y: 0.5 }
+          });
+
+          // Mostrar el modal de felicitaciones
+          setTimeout(() => {
+            document.getElementById("myModal").style.display = "block";
+          }, 1000);
+
+          return;
+        }
+
+        this.angularVelocity *= this.friction;
+        if (this.angularVelocity < 0.002) this.angularVelocity = 0;
+
+        this.angle += this.angularVelocity;
+        this.angle %= 2 * Math.PI;
+
+        this.rotateCanvas();
+      }
+
+      startSimulation() {
+        const animate = () => {
+          this.updateFrame();
+          requestAnimationFrame(animate);
+        };
+        animate();
+      }
+
+      init() {
+        this.sectors.forEach((sector, index) => this.drawSector(sector, index));
+        this.rotateCanvas();
+        this.startSimulation();
+
+        this.button.addEventListener("click", () => {
+          if (!this.angularVelocity) this.angularVelocity = SpinWheel.randomInRange(0.25, 0.45);
+          this.spinButtonClicked = true;
+        });
+      }
+
+      static randomInRange(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+    }
+
+    class EventEmitter {
+      constructor() {
+        this.listeners = {};
+      }
+
+      on(eventName, callback) {
+        if (!this.listeners[eventName]) {
+          this.listeners[eventName] = [];
+        }
+        this.listeners[eventName].push(callback);
+      }
+
+      emit(eventName, ...args) {
+        if (this.listeners[eventName]) {
+          this.listeners[eventName].forEach(callback => callback(...args));
+        }
+      }
+    }
+
+    // Definir los sectores con los nuevos elementos
+    const wheelSectors = [
+      { color: "#2e8b57", textColor: "#ffffff", label: "Sombrilla Verde" },
+      { color: "#ff9900", textColor: "#ffffff", label: "Sombrilla Naranja" },
+      { color: "#2e8b57", textColor: "#ffffff", label: "Sombrilla de bolso Verde" },
+      { color: "#ff9900", textColor: "#ffffff", label: "Sombrilla de bolso Naranja" },
+      { color: "#2e8b57", textColor: "#ffffff", label: "Tasa de Aluminio Verde" },
+      { color: "#ff9900", textColor: "#ffffff", label: "Tasa de Aluminio Naranja" },
+      { color: "#ffffff", textColor: "#2e8b57", label: "Tasa de Aluminio Blanca" },
+      { color: "#2e8b57", textColor: "#ffffff", label: "Lápiz Color Verde" },
+      { color: "#ff9900", textColor: "#ffffff", label: "Lápiz Color Naranja" },
+      { color: "#ffffff", textColor: "#2e8b57", label: "Lápiz Color Blanco" },
+      { color: "#2e8b57", textColor: "#ffffff", label: "Mochila Verde" },
+      { color: "#ff9900", textColor: "#ffffff", label: "Mochila Naranja" },
+      { color: "#ffffff", textColor: "#2e8b57", label: "Mochila Blanca" },
+      { color: "#2e8b57", textColor: "#ffffff", label: "Llaveros destapador" },
+      { color: "#ff9900", textColor: "#ffffff", label: "Gorra Verde" },
+      { color: "#ffffff", textColor: "#2e8b57", label: "Gorra Naranja" },
+      { color: "#2e8b57", textColor: "#ffffff", label: "Gorra Blanca" },
+      { color: "#ff9900", textColor: "#ffffff", label: "Termo de Aluminio" },
+      { color: "#2e8b57", textColor: "#ffffff", label: "Gabachas color verde" },
+      { color: "#ff9900", textColor: "#ffffff", label: "Gabacha color naranja" },
+      { color: "#ffffff", textColor: "#2e8b57", label: "Libreta color verde" },
+      { color: "#2e8b57", textColor: "#ffffff", label: "Libreta color naranja" },
+      { color: "#ff9900", textColor: "#ffffff", label: "Alcancilla verde" },
+      { color: "#ffffff", textColor: "#2e8b57", label: "Alcancilla naranja" },
+      { color: "#2e8b57", textColor: "#ffffff", label: "Maletín verde" },
+      { color: "#ff9900", textColor: "#ffffff", label: "Maletín naranja" },
+    ];
+
+    const spinWheel = new SpinWheel({
+      canvasSelector: "#wheel",
+      buttonSelector: "#spin",
+      sectors: wheelSectors,
+    });
+
+    // Cuando se termine de girar, mostrar el premio
+    spinWheel.events.on("finishSpinning", (sector) => {
+      document.getElementById("prizeName").textContent = sector.label; // Mostrar el premio en el modal
+    });
+
+    // Botón de "Enviar"
+    document.getElementById("submitWinner").addEventListener("click", () => {
+      const identityNumber = document.getElementById("identityNumber").value;
+      const name = document.getElementById("name").value;
+      const phone = document.getElementById("phone").value;
+
+      if (identityNumber && name && phone) {
+        alert("Gracias por ingresar los datos. ¡Has ganado!");
+        document.getElementById("myModal").style.display = "none";
+      } else {
+        alert("Por favor, ingresa todos los datos.");
+      }
+    });
+  </script>
+</body>
+
+</html>
